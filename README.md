@@ -66,7 +66,7 @@ compute pariwise distances of a set; the inputs are nubeam qtf outputs.
 produces prefix.cad.log.
 -i : specifies input file which is output of nubeam.
 -o : output prefix (prefix.log contains pairwise distance matrix)
--m : choice of methods: h2, cos.
+-m : choice of methods: h2 (Hellinger distance), cos (Cosine dissimilarity).
 -b : designating the number of bins per column of scores
 -bf : the file describing how to partition the bins
 -h : print this help
@@ -77,7 +77,7 @@ produces prefix.cad2.log.
 -i : specifies input file of first set, which is output of nubeam.
 -j : specifies input file of second set, which is output of nubeam.
 -o : output prefix (prefix.log contains pairwise distance matrix)
--m : choice of methods: h2, cos.
+-m : choice of methods: h2 (Hellinger distance), cos (Cosine dissimilarity).
 -b : designating the number of bins per column of scores
 -bf : the file describing how to partition the bins
 -h : print this help
@@ -91,6 +91,7 @@ produces prefix.cad2.log.
 
 - Regress out GC content
   - Obtain regression coeffients
+  
     First combined all the output files produced by `qtf` together:
   
     `cat S1.fq.quad.gz S2.fq.quad.gz S3.fq.quad.gz > all.quad.gz`
@@ -101,6 +102,7 @@ produces prefix.cad2.log.
   
     The regression coeffients are in `all.quad.beta.log`.
   - Obtain residuals
+  
     For each original output files produced by `qtf`:
     
     `./nubeam rgc_res -i S1.fq.quad.gz -beta all.quad.beta.log -o S1.fq.quad`
@@ -108,9 +110,15 @@ produces prefix.cad2.log.
     The residuals will be written to `S1.fq.quad.nogc.gz`.
   
 - Quantify pair-wise distance
-  - Consider reads from complementary strand (default)
+  - Calculate within-group distances
   
-  - Do not consider reads from complementary strand
+    `./nubeam cad -o output -m h2 -b 10 -bf bin.txt -i S1.fq.quad.nogc.gz -i S2.fq.quad.nogc.gz -i S3.fq.quad.nogc.gz`
   
-    `./nubeam-dedup -i read.fq`
+    For `n` samples, the command calculate `n(n-1)/2` Hellinger distances. The number of bins partitioned for R4 space is `10^4`, if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. The distance matrix is at the end of `output.cad.log`.
+  
+  - Calculate between-group distances
+  
+    `./nubeam cad2 -o output -m h2 -b 10 -bf bin.txt -i S1.fq.quad.nogc.gz -i S2.fq.quad.nogc.gz -i S3.fq.quad.nogc.gz -j S4.fq.quad.gz -j S5.fq.quad.gz`
+  
+    For a group of `n` samples and a group of `m` samples, the command calculate `nm` Hellinger distances. The number of bins partitioned for R4 space is `10^4`, if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. The distance matrix is at the end of `output.cad2.log`.
     
