@@ -120,5 +120,5 @@ produces prefix.cad2.log.
   
     `./nubeam cad2 -o output -m h2 -b 10 -bf bin.txt -i S1.fq.quad.nogc.gz -i S2.fq.quad.nogc.gz -i S3.fq.quad.nogc.gz -j S4.fq.quad.gz -j S5.fq.quad.gz`
   
-    For a group of `n` samples and a group of `m` samples, the command calculate `nm` Hellinger distances. The number of bins partitioned for R4 space is `10^4`, if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. The distance matrix is at the end of `output.cad2.log`.
+    For a group of `n` samples (specified by `-i`) and a group of `m` samples (specified by `-j`), the command calculate `nm` Hellinger distances. The number of bins partitioned for R4 space is `10^4`, if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. The distance matrix is at the end of `output.cad2.log`.
     
