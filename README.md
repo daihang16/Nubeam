@@ -33,25 +33,84 @@ Run the following commands:
 ## Usage:
 ```
 ./nubeam [qtf, rgc_beta, rgc_res, cad, cad2]
+
+./nubeam qtf [-iodwSnfh]
+compute quadriples for reads in fastq format.
+produces prefix.quad.gz (gc content is within) and prefix.quad.log.
+-i : input filename
+-o : output prefix
+-d : length of the reads (default d=75).
+-w : sliding window size (default w=d).
+-S : sliding window step (default S=w).
+-n : number of missing nucleotide allowed.
+-f : value, plus 33 is the PHRED quality value of fastq reads.
+-h : print this help
+
+./nubeam rgc_beta [-ioh]
+perform regression on gc contents from read quantification and output regression coefficients.
+produces prefix.beta.log.
+-i : input file name.
+-o : output prefix.
+-h : print this help
+
+./nubeam rgc_res [-ioh beta]
+regress out gc contents from read quantification and output residuals.
+produces prefix.nogc.gz and prefix.nogc.log.
+-i : input file name.
+-beta : beta file name.
+-o : output prefix.
+-h : print this help
+
+./nubeam cad [-iombh bf]
+compute pariwise distances of a set; the inputs are nubeam qtf outputs.
+produces prefix.cad.log.
+-i : specifies input file which is output of nubeam.
+-o : output prefix (prefix.log contains pairwise distance matrix)
+-m : choice of methods: h2, cos.
+-b : designating the number of bins per column of scores
+-bf : the file describing how to partition the bins
+-h : print this help
+
+./nubeam cad2 [-ijombh bf]
+compute pariwise cross distances between two sets; the inputs are nubeam qtf outputs.
+produces prefix.cad2.log.
+-i : specifies input file of first set, which is output of nubeam.
+-j : specifies input file of second set, which is output of nubeam.
+-o : output prefix (prefix.log contains pairwise distance matrix)
+-m : choice of methods: h2, cos.
+-b : designating the number of bins per column of scores
+-bf : the file describing how to partition the bins
+-h : print this help
 ```
 ## Examples:
-- For single-end reads
+- Quantify reads
+
+  `./nubeam qtf -i S1.fq -o S1.fq -d 75 -a 0 -n 0 -f 0`
+  
+  Quantify the reads in input file `S1.fq`, with the read length of 75, adaptor size of 0, `N` not allowed in read, the output file name will be `S1.fq.quad.gz`. The output file has six columns of numbers: first four columns are Nubeam quadruplets for reads, the last two columns are GC counts for reads.
+
+- Regress out GC content
+  - Obtain regression coeffients
+    First combined all the output files produced by `qtf` together:
+  
+    `cat S1.fq.quad.gz S2.fq.quad.gz S3.fq.quad.gz > all.quad.gz`
+  
+    Then calculate the regression coefficients for GC count:
+
+    `./nubeam rgc_beta -i all.quad.gz -o all.quad`
+  
+    The regression coeffients are in `all.quad.beta.log`.
+  - Obtain residuals
+    For each original output files produced by `qtf`:
+    
+    `./nubeam rgc_res -i S1.fq.quad.gz -beta all.quad.beta.log -o S1.fq.quad`
+    
+    The residuals will be written to `S1.fq.quad.nogc.gz`.
+  
+- Quantify pair-wise distance
   - Consider reads from complementary strand (default)
+  
+  - Do not consider reads from complementary strand
   
     `./nubeam-dedup -i read.fq`
     
-    The command gives the following output on screen:
-    
-    `Output unique reads to /current/working/directory/read.uniq.fastq`
-  - Do not consider reads from complementary strand
-    
-    `./nubeam-dedup -i read.fq -s 0`
-  - Consider reads from complementary strand (default), output gzipped file with a compression level of 6, output removed duplicated reads 
-  
-    `./nubeam-dedup -i read.fq -z 6 -r 1`
-    
-    The command gives the following output on screen:
-    
-    `Output removed duplicated reads to /current/working/directory/read.removed.fastq.gz`
-    
-    `Output unique reads to /current/working/directory/read.uniq.fastq.gz`
