@@ -8,30 +8,25 @@ Then the genetic difference between samples is quantified by the distance betwee
 ## Compiling:
 ### Dependency
 `zlib` is required to compile. To install `zlib`, run the following commands:
-
-`wget https://www.zlib.net/zlib1211.zip`
-
-`unzip zlib1211.zip`
-
-`cd zlib-1.2.11/`
-
-`./configure`
-
-`make`
-
-`sudo make install`
-### Compile nubeam-dedup
-Run the following commands:
-
-`wget --no-check-certificate --content-disposition https://github.com/daihang16/nubeam/archive/master.zip`
-
-`unzip nubeamdedup-master.zip`
-
-`cd nubeamdedup-master/`
-
-`make`
-## Usage:
+```console
+wget https://www.zlib.net/zlib1211.zip
+unzip zlib1211.zip
+cd zlib-1.2.11/
+./configure
+make
+sudo make install
 ```
+### Compile nubeam
+Run the following commands:
+```console
+wget --no-check-certificate --content-disposition https://github.com/daihang16/nubeam/archive/master.zip
+unzip Nubeam-master.zip
+cd Nubeam-master/
+make
+```
+## Usage:
+`./nubeam -h` gives you the following messages:
+```console
 ./nubeam [qtf, rgc_beta, rgc_res, cad, cad2]
 
 ./nubeam qtf [-iodwSnfh]
@@ -92,7 +87,7 @@ produces prefix.cad2.log.
 - Regress out GC content
   - Obtain regression coeffients
   
-    First combined all the output files produced by `qtf` together:
+    First combine all the output files produced by `qtf` together:
   
     `cat S1.fq.quad.gz S2.fq.quad.gz S3.fq.quad.gz > all.quad.gz`
   
