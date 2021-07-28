@@ -57,6 +57,8 @@ double hellinger(unordered_map<string, double> wx, unordered_map<string, double>
 double cosine(unordered_map<string, double> wx, unordered_map<string, double> wy);
 void quantify_reads(string fin, string fout, int dim, int w, int step, int nm, int, int, double alpha); 
 void regress_gc(string fin, string fout); 
+void regress_gc_residual(string fin, string beta_file, string fout);
+void regress_gc_beta(string fin);
 
 //global gsl variable in use; 
 const gsl_rng_type * gslType;
@@ -88,18 +90,20 @@ int main(int argc, char ** argv)
 	int w = dim; //sliding window size
 	int step = w; //sliding window step
 	int nm = 1; 
-	double alpha=1.0;
+	double alpha = 1.0;
 	int adaptor_size = 0; 
 	int cad = 0; 
 	int cad2 = 0; 
 	int qtf = 0; 
 	int rgc = 0;  
-	int qc = 0; 
+	int rgc_beta = 0;
+	int rgc_res = 0;
 	int tphred = 20; 
 	int withgc = 0; //toggle for whether to compute ad distance for gc contents.
 	int ncol=4; 
 	int n_bin=15; 
 	string bin_file = "";
+	string beta_file = "";
 	unsigned long seed = time(NULL); 
 
 	for(int i = 1; i < argc; i++) 
@@ -123,14 +127,17 @@ int main(int argc, char ** argv)
 		else if(str.compare("cad2") == 0) {			
 			cad2 = 1; 
 		}
-		else if(str.compare("quad") == 0 || str.compare("qtf") == 0) {			
+		else if(str.compare("qtf") == 0) {			
 			qtf = 1; 
 		}
-		else if(str.compare("nogc") == 0 || str.compare("rgc") == 0) {			
+		else if(str.compare("rgc") == 0) {			
 			rgc = 1; 
 		}
-		else if(str.compare("qc") == 0 || str.compare("rgc") == 0) {			
-			qc = 1; 
+		else if(str.compare("rgc_beta") == 0) {			
+			rgc_beta = 1; 
+		}
+		else if(str.compare("rgc_res") == 0) {			
+			rgc_res = 1; 
 		}
 		else if(str.compare("-h") == 0) {			
 			if(qtf == 1)
@@ -138,7 +145,7 @@ int main(int argc, char ** argv)
 				printf("./nubeam quad [-idonwh]\n"); 
 				printf("compute quadriples for reads in (gzipped) fastq format.\n");
 				printf("produces prefix.quad.gz (gc content is within) and prefix.quad.log.\n");  
-				printf("-a : adaptor size (default 8)\n"); 
+				printf("-a : adaptor size (default 0)\n"); 
 				printf("-i : input filename\n"); 
 				printf("-o : output prefix\n"); 
 				printf("-d : dimension, or length of the reads (default d=75).\n"); 
@@ -146,7 +153,6 @@ int main(int argc, char ** argv)
 				printf("-w : sliding window size (default w=d).\n"); 
 				printf("-S : sliding window step (default S=w).\n"); 
 				printf("-f : value, plus 33 is the PHRED quality value of fastq reads.\n");
-				printf("-A : alpha value (0,1].\n"); 
 				printf("-h : print this help\n"); 
 			}
 			else if(cad == 1)
@@ -188,21 +194,28 @@ int main(int argc, char ** argv)
 				printf("-o : output prefix.\n"); 
 				printf("-h : print this help\n"); 
 			}
-			else if(qc == 1) 
+			else if(rgc_beta == 1) 
 			{
-                printf("./nubeam qc [-ioh]\n"); 
-				printf("regress out gc contents from read quantification and output residuals.\n");  
-				printf("produces prefix.qc.gz and prefix.qc.log.\n");  
+                printf("./nubeam rgc_beta [-ioh]\n"); 
+				printf("perform regression on gc contents from read quantification and output regression coefficients.\n");  
+				printf("produces prefix.beta.log.\n");  
 				printf("-i : input file name.\n"); 
 				printf("-o : output prefix.\n"); 
-				printf("-d : threshold of read length (default 76).\n"); 
-				printf("-n : threshold of missing counts (default 2).\n"); 
-				printf("-w : threshold of phred score (default 25).\n"); 
+				printf("-h : print this help\n"); 
+			}
+			else if(rgc_res == 1) 
+			{
+                printf("./nubeam rgc_res [-ioh beta]\n"); 
+				printf("regress out gc contents from read quantification and output residuals.\n");  
+				printf("produces prefix.nogc.gz and prefix.nogc.log.\n");  
+				printf("-i : input file name.\n");
+				printf("-beta : beta file name.\n");
+				printf("-o : output prefix.\n"); 
 				printf("-h : print this help\n"); 
 			}
 			else {
-                printf("./nubeam [qc,quad,nogc,cad,cad2]\n"); 
-				printf("For example, use ./nubeam quad -h for more options.\n"); 
+                printf("./nubeam [qtf, rgc_beta, rgc_res, cad, cad2]\n"); 
+				printf("For example, use ./nubeam qtf -h for more options.\n"); 
 			}
 
 			exit(0); 
@@ -215,15 +228,6 @@ int main(int argc, char ** argv)
                     exit(0);
                 }
                 adaptor_size = atoi(argv[i+1]);
-		}	
-		else if (str.compare("-A") == 0) {
-                if(argv[i+1] == NULL || argv[i+1][0] == '-') continue;
-                if(!isdigit(argv[i+1][0]))
-                {
-                    printf("wrong augument after option.\n");
-                    exit(0);
-                }
-                alpha = atof(argv[i+1]);
 		}
 		else if (str.compare("-in") == 0 || str.compare("-i") == 0) {
 				if(argv[i+1] == NULL || argv[i+1][0] == '-') continue;
@@ -338,6 +342,10 @@ int main(int argc, char ** argv)
                 if(argv[i+1] == NULL || argv[i+1][0] == '-') continue; 
                 bin_file.assign(argv[i+1]);
 		}
+		else if (str.compare("-beta") == 0) {
+                if(argv[i+1] == NULL || argv[i+1][0] == '-') continue; 
+                beta_file.assign(argv[i+1]);
+		}
 		else 
 		{
 				fprintf(stderr,"Bad option %s\n", argv[i]);
@@ -377,6 +385,28 @@ int main(int argc, char ** argv)
 	   if(flog == NULL) 
 		   printf("can't open log file %s to write, proceed anyway.", fnlog.c_str());
 		regress_gc(fin, fout); 
+		fclose(flog); 
+		return 1; 
+	}
+	if(rgc_beta) {
+		fnlog.append(".beta.log");
+		printf("Log file name: %s \n", fnlog.c_str()); 
+		flog = fopen(fnlog.c_str(), "w");
+		if(flog == NULL) {
+			printf("can't open log file %s to write.", fnlog.c_str());
+			exit(0);
+		}
+		regress_gc_beta(fin); 
+		fclose(flog); 
+		return 1; 
+	}
+	if(rgc_res) {
+		fnlog.append(".nogc.log");
+		printf("Log file name: %s \n", fnlog.c_str()); 
+	   flog = fopen(fnlog.c_str(), "w");
+	   if(flog == NULL) 
+		   printf("can't open log file %s to write, proceed anyway.", fnlog.c_str());
+		regress_gc_residual(fin, beta_file, fout); 
 		fclose(flog); 
 		return 1; 
 	}
@@ -462,7 +492,8 @@ void quantify_reads(string fin, string fout, int dim, int w, int step, int nm, i
 		char * score = tscore + adaptor; 
 
         int skip = 0; 
-		if(strlen(line) < dim+adaptor) 
+        dim = strlen(line) - 1;
+		if((dim + 1) < (w + adaptor)) 
 			skip = 1; 
 		if(skip == 0) {
             int temp = 0; 
@@ -757,6 +788,205 @@ long long int filerow(string f1)
 
 		 gzclose(fp); 
 		 return(dim1); 
+}
+
+void regress_gc_beta(string fin) 
+{   const int np = 3; // regressor; 
+	const int ncol = 4;  //nubeam columns; 
+	long long int dim1 = filerow(fin); 
+	printf("File %s contains %lld lines \n", fin.c_str(), dim1);     
+
+	 gsl_matrix * xty=gsl_matrix_alloc(np, ncol); 
+	 gsl_matrix_set_zero(xty); 
+	 gsl_matrix * U = gsl_matrix_alloc(np,np); 
+	 gsl_matrix_set_zero(U); 
+
+	 printf("Begin to scan the file. \n");
+
+	 {
+		 gzFile fp = gzopen(fin.c_str(), "rb"); 
+		 if(fp == NULL) {
+			 printf(" can't open file, %s \n", fin.c_str()); 
+			 exit(0); 
+		 }
+		 // open score  and gc file; 
+		 
+		 char * line1 = new char[1024]; 
+		 double * xx = new double[np]; 
+		 double * yy = new double[ncol]; 
+
+		 for (long long int r = 0; r < dim1; r++) {
+			 gzgets(fp, line1, 1024); 
+			 char * tok1 = strtok(line1, " \t"); 
+			 yy[0] = atof(tok1); 
+			 for (int j = 1; j < ncol; j++) 
+			 {
+				 tok1=strtok(NULL, " \t"); 
+				 if(tok1 != NULL) 
+					 yy[j] = atof(tok1); 
+			 } //first four entries are scores;  
+			 for (int j = 0; j < 2; j++)
+			 {
+				 tok1=strtok(NULL, " \t"); 
+				 if(tok1 != NULL) 
+					 xx[j] = log(1.0+atof(tok1)); 
+					// xx[j] = log(100 * atof(tok1)); 
+			 } //remaining two entries are counts of AT and CG. 
+             xx[np-1] = 1; 
+
+			 for (int i = 0; i < np; i++)
+				 for (int j = 0; j < np; j++)
+				 {
+					 double temp = xx[i] * xx[j] + gsl_matrix_get(U, i, j); 
+					 gsl_matrix_set(U, i, j, temp); 
+				 }
+
+			 for (int i = 0; i < np; i++) 
+				 for (int j = 0; j < ncol; j++)
+				 {
+					 double temp = xx[i] * yy[j] + gsl_matrix_get(xty, i, j); 
+					 gsl_matrix_set(xty, i, j, temp); 
+				 }
+		 }
+		 delete[] line1; 
+		 delete[] xx; 
+		 delete[] yy; 
+		 gzclose(fp); 
+	 }
+	 printf("Finished scanning the file. Begin to calculate regression coefficients.\n"); 
+
+	 gsl_matrix * V = gsl_matrix_alloc(np,np); 
+	 gsl_vector * S = gsl_vector_alloc(np); 
+	 gsl_vector * work = gsl_vector_alloc(np); 
+	 for(int i = 0; i < np; i++)
+		 for (int j = i+1; j < np; j++)
+			 gsl_matrix_set(U, i, j, gsl_matrix_get(U, j, i)); 
+	 //fill the upper; 
+	 gsl_linalg_SV_decomp(U, V, S, work); 
+
+
+	 gsl_matrix * mb= gsl_matrix_alloc(np,ncol); 
+	 for (int c = 0; c < ncol; c++)
+	 {
+		 gsl_vector_view vxy = gsl_matrix_column(xty, c); 
+		 gsl_vector_view gb = gsl_matrix_column(mb, c); 
+		 gsl_linalg_SV_solve(U, V, S, &vxy.vector, &gb.vector); 
+	 }
+
+	 gsl_matrix_free(xty); 
+	 gsl_matrix_free(U); 
+	 gsl_matrix_free(V); 
+	 gsl_vector_free(S); 
+	 gsl_vector_free(work); 
+
+	 printf("Obtained regression coefficients.\n"); 
+	 for(int i = 0; i < np; i++)
+	 {
+		 for(int c = 0; c < ncol; c++)
+			fprintf(flog, "%.10lf ", gsl_matrix_get(mb, i, c)); 
+	     fprintf(flog, "\n"); 
+	 }
+
+	 gsl_matrix_free(mb); 
+}
+
+void regress_gc_residual(string fin, string beta_file, string fout) 
+{   const int np = 3; // regressor; 
+	const int ncol = 4;  //nubeam columns; 
+	long long int dim1 = filerow(fin); 
+	printf("File %s contains %lld lines \n", fin.c_str(), dim1); 
+	fprintf(flog, "File %s contains %lld lines \n", fin.c_str(), dim1); 
+
+	fout.append(".nogc.gz"); 
+
+	gzFile pout = gzopen(fout.c_str(), "wb"); 
+	if(pout == NULL) {
+		printf(" can't open file, %s \n", fout.c_str()); 
+		exit(0); 
+	}//output file ready; 
+	printf("Output file %s prepared.\n", fout.c_str());  
+	fprintf(flog, "Output file %s prepared.\n", fout.c_str());  
+
+	gsl_matrix * mb= gsl_matrix_alloc(np,ncol); 
+	gzFile myfile = gzopen(beta_file.c_str(), "rb");
+	char * line = new char[1024];
+	for (int i = 0; i < np; i++) {
+		gzgets(myfile, line, 1024);
+		char * tok = strtok(line, " ");
+		int j = 0;
+  		while (tok != NULL && j < ncol)
+  		{
+    		gsl_matrix_set(mb, i, j, atof(tok));
+    		tok = strtok(NULL, " ");
+    		j++;
+  		}
+	}
+	delete[] line;
+	gzclose(myfile);
+
+	printf("Obtained the regression coefficients.\n"); 
+	for(int i = 0; i < np; i++)
+	{
+		for(int c = 0; c < ncol; c++)
+			printf("%lf ", gsl_matrix_get(mb, i, c)); 
+	    printf("\n"); 
+	}
+
+
+	 printf("Begin to scan the file and obtain residuals.\n"); 
+	 fprintf(flog, "Begin to scan the file and obtain residuals.\n"); 
+	 {
+		 gzFile fp = gzopen(fin.c_str(), "rb"); 
+		 if(fp == NULL) {
+			 printf(" can't open file, %s \n", fin.c_str()); 
+			 exit(0); 
+		 }
+		 // open score  and gc contents file; 
+		 
+		 char * line1 = new char[1024]; 
+		 double * xx = new double[np]; 
+		 double * yy = new double[ncol]; 
+
+		 for (long long int r = 0; r < dim1; r++) {
+			 gzgets(fp, line1, 1024); 
+			 char * tok1 = strtok(line1, " "); 
+			 yy[0] = atof(tok1); 
+			 for (int j = 1; j < ncol; j++) 
+			 {
+				 tok1=strtok(NULL, " \t"); 
+				 if(tok1 != NULL) 
+					 yy[j] = atof(tok1); 
+			 }//read a line from fp1;  
+			 for (int j = 0; j < 2; j++) 
+			 {
+				 tok1=strtok(NULL, " \t"); 
+				 if(tok1 != NULL) 
+					 xx[j] = log(1.0+atof(tok1)); 
+					// xx[j] = log(100 * atof(tok1));
+			 }//read a line from fp1;  
+             xx[np-1] = 1; 
+
+			 for (int c = 0; c < ncol; c++)
+			 {
+				 double temp = 0; 
+				 for (int j = 0; j < np; j++)
+					 temp += xx[j] * gsl_matrix_get(mb, j, c); 
+				 yy[c] -= temp; 
+				 gzprintf(pout, "%lf ", yy[c]); 
+			 }
+			 gzprintf(pout, "\n"); 
+		 }
+
+		 delete[] line1; 
+		 delete[] xx; 
+		 delete[] yy; 
+		 gzclose(fp); 
+	 }
+	 printf("Obtained residuals.\n"); 
+	 fprintf(flog, "Obtained residuals.\n"); 
+
+	 gzclose(pout); 
+	 gsl_matrix_free(mb); 
 }
 
 void regress_gc(string fin, string fout) 
