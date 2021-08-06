@@ -109,11 +109,11 @@ produces prefix.cad2.log.
   
     `./nubeam cad -o output -m h2 -b 10 -bf bin.txt -i S1.fq.quad.nogc.gz -i S2.fq.quad.nogc.gz -i S3.fq.quad.nogc.gz`
   
-    For `n` samples, the command calculate `n(n-1)/2` Hellinger distances. The number of bins partitioned for R4 space is `10^4`, if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. The distance matrix is at the end of `output.cad.log`.
+    For `n` samples, the command calculate `n(n-1)/2` Hellinger distances. The number of bins partitioned for R^4 space is `10^4`; if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. If the input files are too large, there may not be enough memory to calculate the bin partitioning file. To deal with this problem, you can down-sample input files and used them to calculate a bin partitioning file first, and then use this bin partitioning file and original input files to calculate distance matrix. The distance matrix is at the end of `output.cad.log`. 
   
   - Calculate between-group distances
   
     `./nubeam cad2 -o output -m h2 -b 10 -bf bin.txt -i S1.fq.quad.nogc.gz -i S2.fq.quad.nogc.gz -i S3.fq.quad.nogc.gz -j S4.fq.quad.gz -j S5.fq.quad.gz`
   
-    For a group of `n` samples (specified by `-i`) and a group of `m` samples (specified by `-j`), the command calculate `nm` Hellinger distances. The number of bins partitioned for R4 space is `10^4`, if the `bin.txt` exists, it will be used for partitioning; if not, the partitioning will be calculated and written to `bin.txt`. The distance matrix is at the end of `output.cad2.log`.
+    For a group of `n` samples (specified by `-i`) and a group of `m` samples (specified by `-j`), the command calculate `n*m` Hellinger distances. The number of bins partitioned for R^4 space is `10^4`; unlike in `cad`, here in `cad2`, the argument `-bf` is required, with the specified file `bin.txt` be used for partitioning. If you don't have the bin partitioning file, you need to calculate one using `cad` first. The distance matrix is at the end of `output.cad2.log`.
     
